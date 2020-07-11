@@ -3,7 +3,7 @@ from torch.autograd import Function
 
 class QuantizedLinearPlaceholderFunction(Function):
     @staticmethod
-    def symbolic(g, x, Wt, scale_factor, w_qnt_type, out_features, bias, in_scale, in_qnt_type):
+    def symbolic(g, x, Wt, scale_factor, w_qnt_type, out_features, bias, in_scale, in_qnt_type, dbg_name):
         if in_scale is not None:
             if in_qnt_type is not None:
                 x = g.op('Div', x, in_scale, activation_qnt_s = in_qnt_type)
@@ -16,15 +16,17 @@ class QuantizedLinearPlaceholderFunction(Function):
             # TODO add info about scaling factor constraints as attributes here
             # (e.g. power of two, channel-wise or tensor-wise, ...)
             ret = g.op('Mul', ret, scale_factor)
+        if dbg_name is not None:
+            ret = g.op('DebugMarker', ret, export_debug_name_s = dbg_name, domain_s="finn")
         return ret
 
     @staticmethod
-    def forward(ctx, x, Wt, scale_factor, w_qnt_type, out_features, bias, in_scale, in_qnt_type):
+    def forward(ctx, x, Wt, scale_factor, w_qnt_type, out_features, bias, in_scale, in_qnt_type, dbg_name):
         return torch.empty(1, out_features, dtype = torch.float)
 
 class QuantizedConv2dPlaceholderFunction(Function):
     @staticmethod
-    def symbolic(g, x, W, scale_factor, qnt_type, out_shape, pads, strides, bias, kernel_shape, groups):
+    def symbolic(g, x, W, scale_factor, qnt_type, out_shape, pads, strides, bias, kernel_shape, groups, dbg_name):
         ret = g.op('Conv', x, W, weight_qnt_s = qnt_type,
             kernel_shape_i = kernel_shape,
             pads_i = pads,
@@ -38,29 +40,33 @@ class QuantizedConv2dPlaceholderFunction(Function):
             ret = g.op('Mul', ret, scale_factor)
         if bias is not None:
             ret = g.op('Add', ret, bias)
+        if dbg_name is not None:
+            ret = g.op('DebugMarker', ret, export_debug_name_s = dbg_name, domain_s="finn")
         return ret
 
     @staticmethod
-    def forward(ctx, x, W, scale_factor, qnt_type, out_shape, pads, strides, bias, kernel_shape, groups):
+    def forward(ctx, x, W, scale_factor, qnt_type, out_shape, pads, strides, bias, kernel_shape, groups, dbg_name):
         return torch.empty(out_shape, dtype = torch.float)
 
 class QuantizedHardTanhPlaceholderFunction(Function):
     @staticmethod
-    def symbolic(g, input, qnt_type, thres, bias, scale):
+    def symbolic(g, input, qnt_type, thres, bias, scale, dbg_name):
         if qnt_type == "BIPOLAR":
-          return g.op('MultiThreshold', input, thres, domain_s = "finn",
-                      out_dtype_s = qnt_type, out_scale_f = 2.0, out_bias_f = -1.0)
+            ret = g.op('MultiThreshold', input, thres, domain_s = "finn",
+                out_dtype_s = qnt_type, out_scale_f = 2.0, out_bias_f = -1.0)
         else:
-          ret = g.op('MultiThreshold', input, thres, domain_s = "finn",
-                      out_dtype_s = qnt_type)
-          if bias is not None:
-              ret = g.op('Add', ret, bias)
-          if scale is not None:
-              ret = g.op('Mul', ret, scale)
-          return ret
+            ret = g.op('MultiThreshold', input, thres, domain_s = "finn",
+                out_dtype_s = qnt_type)
+            if bias is not None:
+                ret = g.op('Add', ret, bias)
+            if scale is not None:
+                ret = g.op('Mul', ret, scale)
+        if dbg_name is not None:
+            ret = g.op('DebugMarker', ret, export_debug_name_s = dbg_name, domain_s="finn")
+        return ret
 
     @staticmethod
-    def forward(ctx, input, qnt_type, thres, bias, scale):
+    def forward(ctx, input, qnt_type, thres, bias, scale, dbg_name):
         return input.clamp(0)
 
 # Do we need a separate Place holder for this?
@@ -68,21 +74,23 @@ class QuantizedHardTanhPlaceholderFunction(Function):
 # keeping same interface
 class QuantReLUPlaceholderFunction(Function):
     @staticmethod
-    def symbolic(g, input, qnt_type, thres, bias, scale):
+    def symbolic(g, input, qnt_type, thres, bias, scale, dbg_name):
         ret = g.op('MultiThreshold', input, thres, domain_s = "finn",
                     out_dtype_s = qnt_type)
         if scale is not None:
             ret = g.op('Mul', ret, scale)
+        if dbg_name is not None:
+            ret = g.op('DebugMarker', ret, export_debug_name_s = dbg_name, domain_s="finn")
         return ret
 
     @staticmethod
-    def forward(ctx, input, qnt_type, thres, bias, scale):
+    def forward(ctx, input, qnt_type, thres, bias, scale, dbg_name):
         return input.clamp(0)
 
 
 class QuantAvgPool2dPlaceholderFunction(Function):
     @staticmethod
-    def symbolic(g, input, out_shape, kernel, stride, signed, ibits, obits, scale, qnt_type):
+    def symbolic(g, input, out_shape, kernel, stride, signed, ibits, obits, scale, qnt_type, dbg_name):
         if scale is not None:
             input = g.op('Div', input, scale, activation_qnt_s = qnt_type)
         ret = g.op('QuantAvgPool2d', input, domain_s = "finn",
@@ -91,8 +99,10 @@ class QuantAvgPool2dPlaceholderFunction(Function):
         )
         if scale is not None:
             ret = g.op('Mul', ret, scale)
+        if dbg_name is not None:
+            ret = g.op('DebugMarker', ret, export_debug_name_s = dbg_name, domain_s="finn")
         return ret
 
     @staticmethod
-    def forward(ctx, input, out_shape, kernel, stride, signed, ibits, obits, scale, qnt_type):
+    def forward(ctx, input, out_shape, kernel, stride, signed, ibits, obits, scale, qnt_type, dbg_name):
         return torch.empty(out_shape, dtype = torch.float)

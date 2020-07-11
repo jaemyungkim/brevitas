@@ -225,9 +225,9 @@ class QuantLinear(QuantLayer, Linear):
 
         if self.bias is not None:
             if self.export_out_scale is not None:
-                quant_bias, _, bias_bit_width = self.bias_quant(self.bias, 
+                quant_bias, _, bias_bit_width = self.bias_quant(self.bias,
                             self.export_out_scale, self.export_out_bit_width)
-   
+
                 self.export_bias = torch.t(quant_bias.type(torch.FloatTensor)).detach()
                 self.export_bias /= self.export_output_node_scale
                 self.export_bias = torch.round(self.export_bias)
@@ -280,7 +280,8 @@ class QuantLinear(QuantLayer, Linear):
             ret = QuantizedLinearPlaceholderFunction.apply(
                 input, self.export_int_weight, self.export_output_node_scale,
                 export_qnt_type, self.out_features, self.export_bias,
-                self.export_input_node_scale, self.export_in_quant_type
+                self.export_input_node_scale, self.export_in_quant_type,
+                self.export_debug_name
                 )
             return ret
         else:

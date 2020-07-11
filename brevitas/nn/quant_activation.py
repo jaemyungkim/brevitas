@@ -145,7 +145,7 @@ class QuantReLU(QuantActivation):
                                                     scaling_stats_permute_dims=scaling_stats_permute_dims,
                                                     scaling_stats_op=scaling_stats_op,
                                                     scaling_stats_buffer_momentum=scaling_stats_buffer_momentum)
-    
+
     def get_exportable_quantization_type(self):
         # Brevitas provides a wide range of possibilities for quantization,
         # but FINN only supports a subset. Here we test the quantization
@@ -225,7 +225,7 @@ class QuantReLU(QuantActivation):
         n_thresholds = n_distinct_values - 1
         if ia["per_channel_broadcastable_shape"] is None:
             channels = 1
-            step = torch.abs(self.export_act_scale) 
+            step = torch.abs(self.export_act_scale)
             self.export_thres = torch.empty([channels, n_thresholds])
             min_thres = step/2
             for t in range(n_thresholds):
@@ -253,11 +253,12 @@ class QuantReLU(QuantActivation):
         if self.export_mode:
             return finn_onnx_ops.QuantReLUPlaceholderFunction.apply(
                 input, self.get_exportable_quantization_type(),
-                self.export_thres, self.export_act_bias, self.export_act_scale
+                self.export_thres, self.export_act_bias, self.export_act_scale,
+                self.export_debug_name
                 )
         else:
             return super().forward(input)
-        
+
 
 class QuantSigmoid(QuantActivation):
 
@@ -320,7 +321,7 @@ class QuantTanh(QuantActivation):
                  override_pretrained_bit_width: bool = False,
                  return_quant_tensor: bool = False):
         super(QuantTanh, self).__init__(return_quant_tensor=return_quant_tensor)
-        
+
         activation_impl = nn.Tanh()
         self.act_quant_proxy = ActivationQuantProxy(activation_impl=activation_impl,
                                                     bit_width=bit_width,
@@ -433,7 +434,7 @@ class QuantHardTanh(QuantActivation):
             ):
             if ia["bit_width"] == 1 and ia["quant_type"] == QuantType.BINARY:
                 if ia["scaling_impl_type"] != ScalingImplType.CONST:
-                    print("WARNING: BIPOLAR activation with " + 
+                    print("WARNING: BIPOLAR activation with " +
                         "scaling_impl_type != ScalingImplType.CONST." +
                         " Exported BIPOLAR activations only support [-1,+1] as outputs."+
                         " Scale parameter must be 1")
@@ -489,10 +490,10 @@ class QuantHardTanh(QuantActivation):
             # with a single threshold at 0, followed by (x - 0.5) * scale
 
             self.export_act_bias = torch.tensor(-0.5).type(torch.FloatTensor)
-            self.export_act_scale = self.quant_act_scale().type(torch.FloatTensor).detach() 
+            self.export_act_scale = self.quant_act_scale().type(torch.FloatTensor).detach()
             assert self.export_act_scale == 1, ("Unsupported BIPOLAR activation with scale parameter != 1" +
                         " Exported BIPOLAR activations only support [-1,+1] as outputs")
-            self.export_act_scale *= 2 
+            self.export_act_scale *= 2
 
             self.export_thres = torch.empty([1, 1])
             self.export_thres[0] = 0
@@ -502,7 +503,8 @@ class QuantHardTanh(QuantActivation):
         if self.export_mode:
             return finn_onnx_ops.QuantizedHardTanhPlaceholderFunction.apply(
                 input, self.get_exportable_quantization_type(),
-                self.export_thres, self.export_act_bias, self.export_act_scale
+                self.export_thres, self.export_act_bias, self.export_act_scale,
+                self.export_debug_name
                 )
         else:
             return super().forward(input)
