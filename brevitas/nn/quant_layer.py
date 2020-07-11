@@ -62,6 +62,16 @@ class QuantLayer(object):
         self.export_in_bit_width = None
         self.export_out_scale = None
         self.export_out_bit_width = None
+        # this will be set if brevitas.onnx.enable_debug is called on the model
+        self._export_debug_name = None
+
+    @property
+    def export_debug_name(self):
+        return self._export_debug_name
+
+    @export_debug_name.setter
+    def export_debug_name(self, value):
+        self._export_debug_name = value
 
     @property
     def export_mode(self):
