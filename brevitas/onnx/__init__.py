@@ -9,6 +9,17 @@ import torch
 import torch.onnx
 import copy
 
+def enable_debug(module, hook, filter_fxn = lambda x: True):
+    """Enable debug and set up given forward hook on all QuantLayer-derived children
+    that return True when passed to filter_fxn (always True by default).
+    Debug-enabled nodes will create DebugMarker FINN-ONNX nodes when exported.
+    """
+
+    for child_name, child_module in module.named_modules():
+        if hasattr(child_module, "export_debug_name") and filter_fxn(child_module):
+            child_module.export_debug_name = child_name
+            child_module.register_forward_hook(hook)
+
 def _prepare_for_finn_onnx_export(module, enable_export = True):
     """Traverse children of given module to prepare them for FINN-ONNX export.
 
